@@ -33,8 +33,13 @@ pip install requests beautifulsoup4
 ```bash
 python faucet_helper.py status          # balance / reward / claimable
 python faucet_helper.py status --json
-python faucet_helper.py claim -a bitcoincash:qq...
+python faucet_helper.py claim                      # asks for your BCH address
+python faucet_helper.py claim -a bitcoincash:qq...  # or pass it directly
 ```
+
+If you don't pass `-a`, `claim` asks for your address and keeps asking until
+it's valid. It offers your last used address as the default, so pressing Enter
+reuses it.
 
 `claim` validates the address and checks the faucet's status and a local 12h
 cooldown (stored in `~/.wartale_faucet.json`). It then opens a real browser

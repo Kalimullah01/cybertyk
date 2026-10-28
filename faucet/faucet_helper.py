@@ -3,7 +3,8 @@
 
 Commands:
   status                 Show faucet balance, reward and whether a claim is available.
-  claim --address ADDR   Open a real browser, fill in the address and submit it.
+  claim [--address ADDR] Ask for your BCH address (if not given), then open a
+                         real browser, fill in the address and submit it.
                          You solve the captcha and press "Vote" yourself.
 
 The faucet allows one claim per IP every 12 hours and protects claims with a
@@ -119,13 +120,30 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_claim(args: argparse.Namespace) -> int:
-    addr = args.address.strip()
-    if not is_valid_bch_address(addr):
-        print(f"Not a valid Bitcoin Cash address: {addr!r}", file=sys.stderr)
-        return 2
+def prompt_address(default: str | None) -> str:
+    """Ask for a BCH address until a valid one is entered."""
+    hint = f" [{default}]" if default else ""
+    while True:
+        addr = input(f"Enter your BCH address{hint}: ").strip() or (default or "")
+        if is_valid_bch_address(addr):
+            return addr
+        print("That doesn't look like a valid Bitcoin Cash address, try again.")
 
+
+def cmd_claim(args: argparse.Namespace) -> int:
     state = load_state()
+    if args.address:
+        addr = args.address.strip()
+        if not is_valid_bch_address(addr):
+            print(f"Not a valid Bitcoin Cash address: {addr!r}", file=sys.stderr)
+            return 2
+    else:
+        try:
+            addr = prompt_address(state.get("last_address"))
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            return 1
+
     remaining = cooldown_remaining(state)
     if remaining and not args.ignore_cooldown:
         print(f"Cooldown active: wait {fmt_seconds(remaining)} (12h per IP).")
@@ -208,7 +226,8 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(func=cmd_status)
 
     c = sub.add_parser("claim", help="submit your address; you solve the captcha")
-    c.add_argument("--address", "-a", required=True, help="your BCH address")
+    c.add_argument("--address", "-a",
+                   help="your BCH address (asked for interactively if omitted)")
     c.add_argument("--ignore-cooldown", action="store_true",
                    help="skip the local 12h check (the server still enforces it)")
     c.set_defaults(func=cmd_claim)
