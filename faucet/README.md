@@ -18,6 +18,16 @@ pip install -r requirements.txt
 playwright install chromium   # only needed for `claim`
 ```
 
+### Termux (Android)
+
+Playwright doesn't run on Android. Without it, `claim` copies your address to
+the clipboard and opens the faucet in your phone's browser.
+
+```bash
+pkg install python termux-api   # also install the Termux:API app
+pip install requests beautifulsoup4
+```
+
 ## Usage
 
 ```bash

@@ -16,8 +16,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
+import subprocess
 import sys
 import time
+import webbrowser
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
@@ -136,10 +139,8 @@ def cmd_claim(args: argparse.Namespace) -> int:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("Playwright is required for claiming:\n"
-              "  pip install playwright && playwright install chromium",
-              file=sys.stderr)
-        return 2
+        # No Playwright (e.g. Termux on Android): use the system browser instead.
+        return claim_with_system_browser(addr, state)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -166,6 +167,34 @@ def cmd_claim(args: argparse.Namespace) -> int:
     state.update(last_claim_ts=int(time.time()), last_address=addr)
     save_state(state)
     print(f"\nClaim recorded. Next claim allowed in {fmt_seconds(COOLDOWN_SECONDS)}.")
+    return 0
+
+
+def claim_with_system_browser(addr: str, state: dict) -> int:
+    """Copy the address to the clipboard and open the faucet in the default browser."""
+    if shutil.which("termux-clipboard-set"):
+        subprocess.run(["termux-clipboard-set", addr], check=False)
+        print("Address copied to clipboard.")
+    else:
+        print(f"Copy this address: {addr}")
+
+    if shutil.which("termux-open-url"):
+        subprocess.run(["termux-open-url", FAUCET_URL], check=False)
+    else:
+        webbrowser.open(FAUCET_URL)
+
+    print("\nIn the browser:")
+    print("  1. Paste your address and press 'Claim Faucet!'")
+    print("  2. Solve the captcha")
+    print("  3. Press 'Vote'")
+    answer = input("Did the claim go through? [y/N] ").strip().lower()
+    if answer != "y":
+        print("Not recorded.")
+        return 1
+
+    state.update(last_claim_ts=int(time.time()), last_address=addr)
+    save_state(state)
+    print(f"Claim recorded. Next claim allowed in {fmt_seconds(COOLDOWN_SECONDS)}.")
     return 0
 
 
